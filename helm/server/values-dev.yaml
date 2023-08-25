@@ -1,0 +1,21 @@
+### APPLICATION CONFIG VALUES ###
+lifecycle: dev
+aws:
+  region: us-west-2
+
+### DEPLOYMENT VALUES ###
+replicaCount: 1
+imagePullPolicy: Always
+resources:
+  limits:
+    memory: "250Mi"
+vault:
+  appSecretsPath: apps/reverse-transfer/dlt/dev/context
+
+### SERVICE VALUES ###
+service:
+  host: reverse-transfer-dlt-dev.apps.asu.edu
+
+nodeSelector: {
+  environment: non-prod
+}

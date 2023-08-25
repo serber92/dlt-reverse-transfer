@@ -1,0 +1,42 @@
+# Default values for narrowcasting deploys to caas-sandbox.
+# Declare variables to be passed into your templates.
+
+### NAMESPACES ###
+productFamily: dlt
+product: reverse-transfer
+subproduct: server
+nameOverride: ""
+fullnameOverride: ""
+
+### DEPLOYMENT VALUES ###
+appContext: server
+revisionHistoryLimit: 5
+vaultImage:
+  repository: asuuto/vault-init:latest
+  pullPolicy: Always
+tomcatContextBuilderImage:
+  repository: hashicorp/consul-template:alpine
+  pullPolicy: Always
+serviceAccount:
+  name: server # If not set, a name is generated using the fullname template
+  eksRoleArn: ""
+podSecurityContext:
+  fsGroup: 65534
+securityContext: {}
+
+### SERVICE VALUES ###
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+  path: /
+
+### INGRESS VALUES ###
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    external-dns.alpha.kubernetes.io/target: lb-non-prod-nginx.caas-sandbox.asu.edu
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

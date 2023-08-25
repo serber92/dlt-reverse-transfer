@@ -1,0 +1,19 @@
+### APPLICATION CONFIG VALUES ###
+lifecycle: sandbox-dev
+aws:
+  region: us-west-2
+
+### DEPLOYMENT VALUES ###
+replicaCount: 1
+imagePullPolicy: Always
+resources:
+  limits:
+    memory: "250Mi"
+vault:
+  appSecretsPath: services/dco/jenkins/dlt/reverse-transfer/dev/rttln/db/userpassword
+
+### SERVICE VALUES ###
+service:
+  host: reverse-transfer-dlt-dev.caas-sandbox.asu.edu
+
+nodeSelector: { environment: non-prod }

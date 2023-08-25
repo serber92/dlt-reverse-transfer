@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "server.fullname" . }}-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "server.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      - name: vault-secrets
+        emptyDir:
+          medium: Memory
+          sizeLimit: 10Mi
+      - name: app-context
+        emptyDir:
+          medium: Memory
+          sizeLimit: 10Mi
+      - name: conf-volume
+        configMap:
+          name: {{ include "server.fullname" . }}-conf
+      - name: rtservice-logs
+        emptyDir: {}
+
+      initContainers:
+      - name: vault-init
+        image: {{ .Values.vaultImage.repository }}
+        imagePullPolicy: {{ .Values.vaultImage.pullPolicy }}
+        volumeMounts:
+        - name: vault-secrets
+          mountPath: /var/run/secrets/vaultproject.io
+        env:
+        - name: APP_ROLE
+          value: {{ .Values.vault.appRole }}
+        - name: VAULT_ADDR
+          value: {{ .Values.vault.addr }}
+        - name: VAULT_SESSION_PATH
+          value: "/var/run/secrets/vaultproject.io/auth.json"
+        - name: VAULT_TOKEN_PATH
+          value: "/var/run/secrets/vaultproject.io/client_token"
+        args: ["k8s_login"]
+
+      - name: tomcat-context-builder
+        image: {{ .Values.tomcatContextBuilderImage.repository }}
+        imagePullPolicy: {{ .Values.tomcatContextBuilderImage.pullPolicy }}
+        volumeMounts:
+          - name: vault-secrets
+            mountPath: /var/run/secrets/vaultproject.io
+          - name: app-context
+            mountPath: /var/run/tomcat/app/context
+          - name: conf-volume
+            mountPath: /var/run/conf
+        env:
+          - name: VAULT_ADDR
+            value: {{ .Values.vault.addr }}
+          - name: VAULT_TOKEN_PATH
+            value: "/var/run/secrets/vaultproject.io/client_token"
+          - name: APP_SECRETS_KEY
+            value: {{ .Values.vault.appSecretsPath }}
+          - name: APP_CONTEXT
+            value: {{ .Values.appContext }}
+          - name: AWS_REGION
+            value: {{ .Values.aws.region}}
+        command:
+          - "sh"
+          - "-c"
+          - >
+            consul-template \
+              -vault-addr=$(VAULT_ADDR) \
+              -vault-token=$(cat ${VAULT_TOKEN_PATH}) \
+              -template=/var/run/conf/context.xml.tpl:/var/run/tomcat/app/context/$(APP_CONTEXT).conf \
+              -once;
+              
+      containers:
+      - name: rtservice
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        volumeMounts:
+          - name: app-context
+            mountPath: /usr/local/tomcat/conf/Catalina/localhost/
+        ports:
+          - containerPort: 3000
+            protocol: TCP
+
+        env:
+        - name: DATABASE_ENDPOINT
+          value: {{ .Values.dbEndpoint }}
+        - name: APP_ROLE
+          value: {{ .Values.vault.appRole }}
+        - name: VAULT_ADDR
+          value: {{ .Values.vault.addr }}
